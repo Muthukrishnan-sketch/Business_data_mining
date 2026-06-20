@@ -356,7 +356,7 @@ export default function App() {
         {isMobile && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, background: "#1e3a5f", margin: "-16px -14px 16px", padding: "14px 16px" }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>📊 DataMine</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>📊 DataMine v2</div> 
               <div style={{ fontSize: 10, color: "#7dd3fc" }}>Business Intelligence Platform</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
