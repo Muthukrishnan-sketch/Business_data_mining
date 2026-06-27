@@ -19,7 +19,9 @@ app = FastAPI(title="Business Data Mining Platform")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origins=[
+        "http://localhost:5173",
+        "https://your-actual-vercel-url.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

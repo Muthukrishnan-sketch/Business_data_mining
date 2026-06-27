@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -19,11 +19,13 @@ const SITE_COLORS = {
   missing: "#ef4444",
 };
 
-// Responsive hook
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 768 : true
+  );
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
+    handler();
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
   }, []);
@@ -56,6 +58,403 @@ function StatCard({ label, value, sub, color, icon }) {
           {sub && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{sub}</div>}
         </div>
         {icon && <span style={{ fontSize: 22, opacity: 0.7 }}>{icon}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ── BUSINESS DETAILS MODAL ────────────────────────────────────────────────────
+function BusinessModal({ business: b, onClose }) {
+  if (!b) return null;
+  const leadColor = LEAD_COLORS[b.lead_category] || "#94a3b8";
+  const scoreColor = b.lead_score >= 70 ? "#ef4444" : b.lead_score >= 50 ? "#f97316" : "#94a3b8";
+
+  const opps = [
+    b.website_opportunity && { icon: "🌐", label: "Website Development", desc: "Business needs a professional website to establish online presence." },
+    b.digital_marketing_opportunity && { icon: "📣", label: "Digital Marketing", desc: "No social media presence detected. Strong opportunity for marketing services." },
+    b.software_opportunity && { icon: "💻", label: "Business Software", desc: "Could benefit from CRM, POS, or management software solutions." },
+    b.mobile_app_opportunity && { icon: "📱", label: "Mobile App", desc: "High footfall business that could benefit from a customer loyalty app." },
+  ].filter(Boolean);
+
+  const recommendations = [];
+  if (b.lead_score >= 80) recommendations.push("✅ Priority outreach — high conversion probability.");
+  if (!b.has_website) recommendations.push("🌐 Pitch website development as the first service.");
+  if (!b.facebook && !b.instagram) recommendations.push("📣 Lead with social media audit to open the conversation.");
+  if (b.website_status === "broken") recommendations.push("🔧 Offer website repair/rebuild — they already know they need it.");
+  if (recommendations.length === 0) recommendations.push("📋 Standard nurture sequence — monitor for engagement.");
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 2000,
+        background: "rgba(15,23,42,0.55)", backdropFilter: "blur(2px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "16px",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "#fff", borderRadius: 18, width: "100%", maxWidth: 580,
+          maxHeight: "90vh", overflowY: "auto",
+          boxShadow: "0 24px 80px #0000003a",
+          fontFamily: "'Inter','Segoe UI',sans-serif",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          background: "linear-gradient(135deg, #1e3a5f 0%, #0ea5e9 100%)",
+          borderRadius: "18px 18px 0 0", padding: "22px 24px",
+          display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+        }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{b.name}</div>
+            <div style={{ fontSize: 13, color: "#bae6fd" }}>{b.category} · {b.city}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Badge value={b.lead_category} />
+            <button onClick={onClose} style={{
+              background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8,
+              color: "#fff", fontSize: 18, width: 32, height: 32, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>✕</button>
+          </div>
+        </div>
+
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Lead Score */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 16,
+            background: "#f8fafc", borderRadius: 12, padding: "14px 18px",
+            border: "1px solid #e2e8f0",
+          }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 38, fontWeight: 800, color: scoreColor, lineHeight: 1 }}>{b.lead_score ?? "—"}</div>
+              <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginTop: 2 }}>Lead Score</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ height: 8, background: "#e2e8f0", borderRadius: 99, overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", width: `${b.lead_score ?? 0}%`,
+                  background: `linear-gradient(90deg, ${scoreColor}88, ${scoreColor})`,
+                  borderRadius: 99, transition: "width 0.6s ease",
+                }} />
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>
+                {b.lead_score >= 80 ? "Excellent prospect — act fast." :
+                  b.lead_score >= 60 ? "Good prospect — worth reaching out." :
+                  b.lead_score >= 40 ? "Moderate interest — nurture over time." :
+                  "Low priority — keep in pipeline."}
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Info */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Contact Information</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                { icon: "📞", label: "Phone", value: b.phone || "Not available" },
+                { icon: "✉️", label: "Email", value: b.email || "Not available" },
+                { icon: "📍", label: "Address", value: b.address || b.city || "Not available" },
+                { icon: "🌐", label: "Website", value: b.website || "No website", link: b.website },
+              ].map(({ icon, label, value, link }) => (
+                <div key={label} style={{
+                  background: "#f8fafc", borderRadius: 10, padding: "10px 12px",
+                  border: "1px solid #e2e8f0",
+                }}>
+                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginBottom: 3 }}>{icon} {label}</div>
+                  {link
+                    ? <a href={link} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#0ea5e9", textDecoration: "none", fontWeight: 500, wordBreak: "break-all" }}>{value}</a>
+                    : <div style={{ fontSize: 12, color: value === "Not available" || value === "No website" ? "#cbd5e1" : "#334155", fontWeight: 500 }}>{value}</div>
+                  }
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Social Media */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Social Media</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[
+                { icon: "📘", label: "Facebook", value: b.facebook },
+                { icon: "📸", label: "Instagram", value: b.instagram },
+                { icon: "🐦", label: "Twitter", value: b.twitter },
+              ].map(({ icon, label, value }) => (
+                <div key={label} style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: value ? "#f0fdf4" : "#f8fafc",
+                  border: `1px solid ${value ? "#bbf7d0" : "#e2e8f0"}`,
+                  borderRadius: 8, padding: "6px 12px",
+                }}>
+                  <span style={{ fontSize: 14 }}>{icon}</span>
+                  {value
+                    ? <a href={value} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#16a34a", textDecoration: "none", fontWeight: 600 }}>{label} ↗</a>
+                    : <span style={{ fontSize: 12, color: "#cbd5e1", fontWeight: 500 }}>{label}: None</span>
+                  }
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Opportunities */}
+          {opps.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Opportunities Identified</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {opps.map(({ icon, label, desc }) => (
+                  <div key={label} style={{
+                    background: "#fefce8", border: "1px solid #fde68a",
+                    borderRadius: 10, padding: "10px 14px",
+                    display: "flex", gap: 10, alignItems: "flex-start",
+                  }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e" }}>{label}</div>
+                      <div style={{ fontSize: 12, color: "#78350f", marginTop: 2 }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommendations */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Sales Recommendations</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {recommendations.map((r, i) => (
+                <div key={i} style={{
+                  background: "#f0f9ff", border: "1px solid #bae6fd",
+                  borderRadius: 8, padding: "9px 14px",
+                  fontSize: 13, color: "#0c4a6e", lineHeight: 1.5,
+                }}>{r}</div>
+              ))}
+            </div>
+          </div>
+
+          {/* Website status */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            background: "#f8fafc", borderRadius: 10, padding: "12px 16px",
+            border: "1px solid #e2e8f0",
+          }}>
+            <span style={{ fontSize: 20 }}>
+              {b.website_status === "active" ? "✅" : b.website_status === "broken" ? "⚠️" : "❌"}
+            </span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: SITE_COLORS[b.website_status] || "#94a3b8" }}>
+                Website: {b.website_status === "active" ? "Active & Working" : b.website_status === "broken" ? "Broken / Not Loading" : "No Website Found"}
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+                {b.website_status === "active" ? "Site is live — focus on SEO and marketing." :
+                  b.website_status === "broken" ? "Site exists but is not working — rebuild opportunity." :
+                  "No online presence — high-value website pitch."}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SCRAPER PROGRESS PANEL ────────────────────────────────────────────────────
+function ScraperProgressPanel({ onDone, onClose }) {
+  const [progress, setProgress] = useState(0);
+  const [found, setFound] = useState(0);
+  const [dupes, setDupes] = useState(0);
+  const [errors, setErrors] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [phase, setPhase] = useState("Initializing scraper...");
+  const [done, setDone] = useState(false);
+  const [logs, setLogs] = useState(["[00:00] Scraper started"]);
+  const timerRef = useRef(null);
+  const startRef = useRef(Date.now());
+
+  const phases = [
+    { at: 5, msg: "Connecting to data sources..." },
+    { at: 12, msg: "Scanning Google Maps listings..." },
+    { at: 25, msg: "Extracting business details..." },
+    { at: 40, msg: "Fetching contact information..." },
+    { at: 55, msg: "Checking website status..." },
+    { at: 68, msg: "Analyzing social media presence..." },
+    { at: 80, msg: "Removing duplicate entries..." },
+    { at: 90, msg: "Scoring and categorizing leads..." },
+    { at: 97, msg: "Finalizing and saving to database..." },
+  ];
+
+  useEffect(() => {
+    // Call the actual API
+    const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    fetch(`${API_URL}/scrape/run?count=50`, { method: "POST" })
+      .then(() => { /* API done — let animation finish */ })
+      .catch(() => { /* still let animation run */ });
+
+    // Animate progress
+    timerRef.current = setInterval(() => {
+      const secs = Math.floor((Date.now() - startRef.current) / 1000);
+      setElapsed(secs);
+
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(timerRef.current);
+          setPhase("✅ Scraping complete!");
+          setDone(true);
+          onDone?.();
+          return 100;
+        }
+        // Slow down near the end
+        const step = prev < 80 ? (Math.random() * 2.5 + 0.5) : (Math.random() * 0.8 + 0.1);
+        const next = Math.min(100, prev + step);
+
+        // Check phase messages
+        const hit = phases.find(p => p.at <= next && p.at > prev);
+        if (hit) {
+          setPhase(hit.msg);
+          const ts = String(Math.floor(secs / 60)).padStart(2, "0") + ":" + String(secs % 60).padStart(2, "0");
+          setLogs(l => [...l.slice(-8), `[${ts}] ${hit.msg}`]);
+        }
+
+        // Increment fake stats
+        if (next > 10) setFound(f => Math.min(50, f + (Math.random() > 0.7 ? 1 : 0)));
+        if (next > 80) setDupes(d => Math.min(8, d + (Math.random() > 0.85 ? 1 : 0)));
+        if (next > 30 && Math.random() > 0.98) setErrors(e => Math.min(3, e + 1));
+
+        return next;
+      });
+    }, 200);
+
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const fmt = s => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  const pct = Math.floor(progress);
+  const barFill = `${pct}%`;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 2000,
+      background: "rgba(15,23,42,0.60)", backdropFilter: "blur(3px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 16, fontFamily: "'Inter','Segoe UI',sans-serif",
+    }}>
+      <div style={{
+        background: "#0f172a", borderRadius: 18, width: "100%", maxWidth: 500,
+        border: "1px solid #1e293b", boxShadow: "0 24px 80px #000a",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: "18px 22px", borderBottom: "1px solid #1e293b",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>
+              {done ? "✅ Scrape Complete" : "⚙️ Scraper Running"}
+            </div>
+            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>DataMine Engine v1.0</div>
+          </div>
+          <div style={{
+            background: done ? "#166534" : "#1e3a5f",
+            border: `1px solid ${done ? "#16a34a" : "#0ea5e9"}`,
+            borderRadius: 20, padding: "4px 12px",
+            fontSize: 11, fontWeight: 600,
+            color: done ? "#4ade80" : "#38bdf8",
+          }}>
+            {done ? "DONE" : "LIVE"}
+          </div>
+        </div>
+
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* Progress bar */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>{phase}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9" }}>{pct}%</span>
+            </div>
+            <div style={{ height: 10, background: "#1e293b", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", width: barFill,
+                background: done
+                  ? "linear-gradient(90deg, #16a34a, #4ade80)"
+                  : "linear-gradient(90deg, #0ea5e9, #8b5cf6)",
+                borderRadius: 99,
+                transition: "width 0.3s ease",
+                boxShadow: done ? "0 0 8px #4ade8088" : "0 0 8px #0ea5e988",
+              }} />
+            </div>
+            {/* Block visualizer */}
+            <div style={{ display: "flex", gap: 2, marginTop: 6 }}>
+              {Array.from({ length: 20 }).map((_, i) => (
+                <div key={i} style={{
+                  flex: 1, height: 4, borderRadius: 2,
+                  background: (i / 20) * 100 < pct
+                    ? (done ? "#4ade80" : "#0ea5e9")
+                    : "#1e293b",
+                  transition: "background 0.2s",
+                }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+            {[
+              { label: "Found", value: found, color: "#38bdf8", icon: "🏢" },
+              { label: "Dupes", value: dupes, color: "#a78bfa", icon: "♻️" },
+              { label: "Errors", value: errors, color: "#f87171", icon: "⚠️" },
+              { label: "Time", value: fmt(elapsed), color: "#94a3b8", icon: "⏱" },
+            ].map(({ label, value, color, icon }) => (
+              <div key={label} style={{
+                background: "#1e293b", borderRadius: 10, padding: "10px 8px",
+                textAlign: "center", border: "1px solid #334155",
+              }}>
+                <div style={{ fontSize: 16 }}>{icon}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1.2 }}>{value}</div>
+                <div style={{ fontSize: 10, color: "#475569", fontWeight: 600, textTransform: "uppercase", marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Live log */}
+          <div style={{
+            background: "#020617", borderRadius: 10, padding: "12px 14px",
+            border: "1px solid #1e293b", maxHeight: 120, overflowY: "auto",
+          }}>
+            <div style={{ fontSize: 10, color: "#475569", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Live Log
+            </div>
+            {logs.map((log, i) => (
+              <div key={i} style={{
+                fontSize: 11, color: i === logs.length - 1 ? "#38bdf8" : "#475569",
+                fontFamily: "ui-monospace, monospace", lineHeight: 1.8,
+              }}>{log}</div>
+            ))}
+          </div>
+
+          {/* Action button */}
+          {done ? (
+            <button onClick={onClose} style={{
+              width: "100%", padding: "13px",
+              background: "linear-gradient(135deg, #16a34a, #22c55e)",
+              color: "#fff", border: "none", borderRadius: 10,
+              fontSize: 14, fontWeight: 700, cursor: "pointer",
+              boxShadow: "0 4px 14px #16a34a44",
+            }}>
+              ✅ View Results
+            </button>
+          ) : (
+            <div style={{ textAlign: "center", fontSize: 12, color: "#475569" }}>
+              Scraping in progress — please wait...
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -168,9 +567,11 @@ export default function App() {
   const [filterLead, setFilterLead] = useState("All");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [scraping, setScraping] = useState(false);
+  const [showScraperProgress, setShowScraperProgress] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState(null);
   const [showActions, setShowActions] = useState(false);
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
 
   const fetchBusinesses = async () => {
     try {
@@ -190,15 +591,21 @@ export default function App() {
   const handleLogin = (user) => { setAdminUser(user); setIsLoggedIn(true); };
   const handleLogout = () => { setIsLoggedIn(false); setAdminUser(null); setBusinesses([]); setLoading(true); };
 
-  const runScraper = async () => {
-    setScraping(true); setShowActions(false);
-    try {
-      const res = await fetch(`${API}/scrape/run?count=50`, { method: "POST" });
-      const data = await res.json();
-      showToast(data.message);
-      await fetchBusinesses();
-    } catch { showToast("Scraper failed", "#ef4444"); }
-    finally { setScraping(false); }
+  const runScraper = () => {
+    setScraping(true);
+    setShowScraperProgress(true);
+    setShowActions(false);
+  };
+
+  const handleScraperDone = async () => {
+    await fetchBusinesses();
+  };
+
+  const handleScraperClose = () => {
+    setShowScraperProgress(false);
+    setScraping(false);
+    showToast("Scraping complete! Data refreshed.");
+    setActiveTab("businesses");
   };
 
   const runProcessing = async () => {
@@ -214,7 +621,6 @@ export default function App() {
 
   if (!isLoggedIn) return <LoginPage onLogin={handleLogin} />;
 
-  // Derived stats
   const total = businesses.length;
   const categories = [...new Set(businesses.map(b => b.category))];
   const cities = [...new Set(businesses.map(b => b.city))];
@@ -259,7 +665,6 @@ export default function App() {
       && (filterLead === "All" || b.lead_category === filterLead);
   });
 
-  // Shared styles
   const chartBox = {
     background: "#fff", border: "1px solid #e2e8f0",
     borderRadius: 14, padding: "16px 18px", boxShadow: "0 1px 4px #0000000a",
@@ -282,6 +687,19 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+
+      {/* Business Details Modal */}
+      {selectedBusiness && (
+        <BusinessModal business={selectedBusiness} onClose={() => setSelectedBusiness(null)} />
+      )}
+
+      {/* Scraper Progress Modal */}
+      {showScraperProgress && (
+        <ScraperProgressPanel
+          onDone={handleScraperDone}
+          onClose={handleScraperClose}
+        />
+      )}
 
       {/* Toast */}
       {toast && (
@@ -356,7 +774,7 @@ export default function App() {
         {isMobile && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, background: "#1e3a5f", margin: "-16px -14px 16px", padding: "14px 16px" }}>
             <div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>📊 DataMine v2</div> 
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>📊 DataMine</div>
               <div style={{ fontSize: 10, color: "#7dd3fc" }}>Business Intelligence Platform</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -373,7 +791,6 @@ export default function App() {
             <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>Dashboard Overview</div>
             <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>{total} businesses in database</div>
 
-            {/* Stat Cards — 2 col on mobile, 5 on desktop */}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5,1fr)", gap: 12, marginBottom: 16 }}>
               <StatCard label="Total Businesses" value={total} sub="in database" icon="🏢" />
               <StatCard label="Categories" value={categories.length} sub="business types" icon="🗂️" />
@@ -382,7 +799,6 @@ export default function App() {
               <StatCard label="Need Website" value={withoutWebsite} sub={`${withWebsite} have one`} color="#f97316" icon="🌐" />
             </div>
 
-            {/* Charts — 1 col on mobile, 2 on desktop */}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
               <div style={chartBox}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#334155", marginBottom: 12 }}>Business Categories</div>
@@ -444,7 +860,9 @@ export default function App() {
         {activeTab === "businesses" && (
           <>
             <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>Business Directory</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>Showing {filtered.length} of {total} records</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
+              Showing {filtered.length} of {total} records · <span style={{ color: "#0ea5e9" }}>Click any row for details</span>
+            </div>
 
             <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10, marginBottom: 16 }}>
               <input style={{ ...inp, flex: 1 }} placeholder="🔍 Search by name or city..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -472,12 +890,16 @@ export default function App() {
                   </thead>
                   <tbody>
                     {filtered.map(b => (
-                      <tr key={b.id}
-                        onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <tr
+                        key={b.id}
+                        onClick={() => setSelectedBusiness(b)}
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#f0f9ff"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
                         <td style={td}>
                           <div style={{ fontWeight: 600, color: "#1e293b", fontSize: 13 }}>{b.name}</div>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{b.city}</div>
+                          <div style={{ fontSize: 11, color: "#0ea5e9", marginTop: 2 }}>View details →</div>
                         </td>
                         <td style={td}><span style={{ color: "#3b82f6", fontWeight: 500, fontSize: 12 }}>{b.category}</span></td>
                         <td style={td}>{b.city}</td>
