@@ -21,7 +21,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://your-actual-vercel-url.vercel.app"],
+        "business-data-mining-hnvm3o6ir-snmak2.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
